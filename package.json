@@ -1,0 +1,18 @@
+{
+  "name": "name-cycler-slack-app",
+  "description": "A Slack App to cycle among names",
+  "version": "1.0.0",
+  "author": "Gabriel Borges",
+  "license": "",
+  "main": "src/index.js",
+  "dependencies": {
+    "aws-sdk": "^2.725.0",
+    "axios": "^0.19.2",
+    "emittery": "^0.7.1",
+    "querystring": "^0.2.0"
+  },
+  "devDependencies": {
+    "serverless-plugin-typescript": "^1.1.9",
+    "typescript": "^3.9.7"
+  }
+}
