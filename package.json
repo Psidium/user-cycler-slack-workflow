@@ -12,7 +12,11 @@
     "querystring": "^0.2.0"
   },
   "devDependencies": {
+    "@types/jest": "^26.0.8",
+    "jest": "^26.2.2",
+    "serverless-dotenv-plugin": "^3.0.0",
     "serverless-plugin-typescript": "^1.1.9",
+    "ts-jest": "^26.1.4",
     "typescript": "^3.9.7"
   }
 }

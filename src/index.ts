@@ -73,23 +73,35 @@ slack.on("shortcut", async ({ msg, bot }) => {
 });
 
 slack.on("workflow_step_execute", async ({ msg, bot }) => {
-  console.log("received from workflow_step_execute");
+  console.log(`received from workflow_step_execute: ${JSON.stringify(msg)}`);
   const { workflow_step } = msg.event;
   const id = msg.team_id;
   try {
     const stored = (await slack.store.get(id)) || {};
     const usersObject = stored?.workflows?.[workflow_step.workflow_id] || {};
-    usersObject.currentIndex =
-      (usersObject.currentIndex + 1) % usersObject.users.length;
-    const selectedUser = usersObject.users[usersObject.currentIndex];
+    if (msg.event.callback_id === "change_selected_user") {
+      console.log(`Changing the selected user: ${JSON.stringify(usersObject.users)}`);
+      prepareToSkipTheLastOne(usersObject.users);
+    }
+      console.log(`Going to extract selected user from: ${JSON.stringify(usersObject.users)}`);
+    const selectedUser = extractItemAndShiftArray(usersObject.users);
+      console.log(`array after extracting the user: ${selectedUser}: ${JSON.stringify(usersObject.users)}`); 
+    await slack.store.save(stored);
     await bot.send("workflows.stepCompleted", {
       workflow_step_execute_id: workflow_step.workflow_step_execute_id,
       outputs: {
         assigned_user: selectedUser,
       },
     });
-    await slack.store.save(stored);
-  } catch (e) {}
+  } catch (e) {
+    await bot.send("workflows.stepFailed", {
+      workflow_step_execute_id: workflow_step.workflow_step_execute_id,
+      error: {
+        message: "Could not execute step!"
+      },
+    });
+    throw e;
+  }
 });
 
 slack.on("workflow_step_edit", async ({ msg, bot }) => {
@@ -106,6 +118,7 @@ slack.on("workflow_step_edit", async ({ msg, bot }) => {
       const users = stored?.workflows?.[workflow_step.workflow_id]?.users || [];
       await bot.send("views.open", {
         trigger_id: msg.trigger_id,
+        callback_id: msg.callback_id,
         view: {
           type: "workflow_step",
           blocks: [
@@ -133,25 +146,34 @@ slack.on("workflow_step_edit", async ({ msg, bot }) => {
       });
       console.log("answered already");
       break;
+    case "change_selected_user":
+      await bot.send("views.open", {
+        trigger_id: msg.trigger_id,
+        callback_id: msg.callback_id,
+        view: {
+          type: "workflow_step",
+          blocks: [],
+        },
+      });
+      break;
   }
 });
 
-slack.on("view_submission", async ({ msg, bot, setResponse }) => {
+slack.on("view_submission", async ({ msg, bot }) => {
   console.log(`received  from view_submission ${JSON.stringify(msg)}`);
   if (msg.view.type === "workflow_step") {
     const { workflow_step } = msg;
     const workflowId = workflow_step.workflow_id;
-    const selectedUsers = msg.view.state.values.cycleUsers.list.selected_users;
-    const id = msg.team.id;
-    const stored = (await slack.store.get(id)) || {};
-    stored.workflows = stored.workflows || {};
-    stored.workflows[workflowId] = {
-      users: selectedUsers,
-      currentIndex:
-        stored.workflows?.[workflowId]?.currentIndex ||
-        selectedUsers.length - 1,
-    };
-    await slack.store.save(stored);
+    const selectedUsers = msg?.view?.state?.values?.cycleUsers?.list?.selected_users;
+    if (selectedUsers) { // if callback_id is select_list
+      const id = msg.team.id;
+      const stored = (await slack.store.get(id)) || {};
+      stored.workflows = stored.workflows || {};
+      stored.workflows[workflowId] = {
+        users: selectedUsers
+      };
+      await slack.store.save(stored);
+    }
     await bot.send("workflows.updateStep", {
       trigger: msg.trigger_id,
       workflow_step_edit_id: workflow_step.workflow_step_edit_id,
@@ -165,3 +187,23 @@ slack.on("view_submission", async ({ msg, bot, setResponse }) => {
     });
   }
 });
+
+export function extractItemAndShiftArray(users) {
+  const selectedUser = users.pop();
+  users.splice(0, 0, selectedUser);
+  return selectedUser;
+}
+
+function undoExtractAndShiftArray(users) {
+  const  [ oldLast ] = users.splice(0, 1);
+  users.push(oldLast);
+}
+
+function swapLastAndSecondLastUser(users) {
+  users.splice(users.length-2, 2, users[users.length-1], users[users.length-2])
+}
+
+export function prepareToSkipTheLastOne(users) {
+  undoExtractAndShiftArray(users);
+  swapLastAndSecondLastUser(users);
+}

@@ -40,18 +40,8 @@ custom:
   # The path to redirect to after an install
   slack_install_redirect: https://slack.com
 
-  # Verification token
-  slack_verification_token: "***REMOVED***"            
-  
   # Space delimited scopes
   slack_client_scopes: "bot commands"
-  
-  # Client ID - quotes required
-  slack_client_id: "***REMOVED***"
-  
-  # Client Secret - quotes required
-  slack_client_secret: "***REMOVED***"
-  
 
 provider:
   name: aws
@@ -69,11 +59,11 @@ provider:
       Resource: "arn:aws:dynamodb:us-east-1:*:*"
   environment:
     TABLE_NAME: ${self:custom.slack_table_name}
-    CLIENT_ID: ${self:custom.slack_client_id}
-    CLIENT_SECRET: ${self:custom.slack_client_secret}
+    CLIENT_ID: ${env:SLACK_CLIENT_ID}
+    CLIENT_SECRET: ${env:SLACK_CLIENT_SECRET}
     CLIENT_SCOPES: ${self:custom.slack_client_scopes}
     INSTALL_REDIRECT: ${self:custom.slack_install_redirect}
-    VERIFICATION_TOKEN: ${self:custom.slack_verification_token}
+    VERIFICATION_TOKEN: ${env:SLACK_VERIFICATION_TOKEN}
     ENABLE_LOGGING: ${self:custom.slack_enable_logging}
 
 
@@ -92,6 +82,7 @@ functions:
 
 plugins:
   - serverless-plugin-typescript
+  - serverless-dotenv-plugin
 
 resources:
   Resources:
